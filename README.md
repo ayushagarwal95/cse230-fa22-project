@@ -1,6 +1,10 @@
 # cse230-fa22-project
 
-Team Members: Brian Li 
+Team Members: 
+1. Brian Li
+2. Aditya Jeswani
+3. Prerna Bhavsar
+4. Ayush Agarwal
 
 ## Project Proposal
 
