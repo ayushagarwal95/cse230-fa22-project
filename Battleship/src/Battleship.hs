@@ -1,6 +1,6 @@
 module Battleship where
 import Data.Char (ord)
-import Data.Set (Set, member, insert, empty, size)
+import Data.Set (Set, member, insert, empty, size, toList, fromList)
 import Data.Map (Map, empty, insert, assocs, keys)
 
 type Coordinate = (Int, Int)
@@ -67,7 +67,7 @@ initGame = return Battleship.empty
 addShip :: Boat -> Coordinate -> Game -> Maybe Game
 addShip b c g = let b'       = Data.Map.insert b c (_boats g)
                     expected = foldl e 0 (keys b')
-                    actual   = length (filter isValid (concatMap coords (assocs b')))
+                    actual   = length (filter isValid (toList (fromList (concatMap coords (assocs b')))))
                 in 
                     if expected == actual then
                         Just (g {_boats = b'})
