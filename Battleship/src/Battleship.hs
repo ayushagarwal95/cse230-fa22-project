@@ -1,7 +1,7 @@
 module Battleship where
 import Data.Char (ord)
 import Data.Set (Set, member, insert, empty, size, toList, fromList)
-import Data.Map (Map, empty, insert, assocs, keys)
+import Data.Map (Map, empty, insert, assocs, keys, size)
 
 type Coordinate = (Int, Int)
 type Orientation = Bool
@@ -57,9 +57,6 @@ empty = Game {
     _hits      = Data.Set.empty 
     }
 
--- Initialize a new empty game
-initGame :: IO Game
-initGame = return Battleship.empty
 
 -- Possibly add the ship at the position if the coordinate is valid
 --   Note: Validation is performed by ensuring that the number of 
@@ -78,6 +75,11 @@ addShip b c g = let b'       = Data.Map.insert b c (_boats g)
         coords (b, (r, c)) = [(r + r', c + c') | r' <- [0..(_r b - 1)], c' <- [0..(_c b - 1)]]
 
 
+-- Determines if the game is considered fully setup (all boats exist on the board)
+isSetup :: Game -> Bool 
+isSetup g = Data.Map.size (_boats g) == 5
+
+
 -- Possibly attack the coordinate if valid (new coordinate)
 attack :: Coordinate -> Game -> Maybe Game
 attack c g = if isValid c && not (member c (_attacked g)) then 
@@ -87,8 +89,8 @@ attack c g = if isValid c && not (member c (_attacked g)) then
 
 
 -- Record that the coordinate was a hit if valid
-hit :: Coordinate -> Game -> Game
-hit c g = g {_hits = Data.Set.insert c (_hits g)}
+hit :: Coordinate -> Game -> Maybe Game
+hit c g = Just g {_hits = Data.Set.insert c (_hits g)}
 
 
 -- Determine if the attack was a hit
@@ -100,13 +102,13 @@ isHit (r, c) g = not (any f (assocs (_boats g)))
 
 
 -- Record that the coordinate was chosen by the opponent
-damaged :: Coordinate -> Game -> Game
-damaged c g = g {_damaged = Data.Set.insert c (_damaged g)}
+damaged :: Coordinate -> Game -> Maybe Game
+damaged c g = Just g {_damaged = Data.Set.insert c (_damaged g)}
 
 
 -- Possible end the game if either player has won
 terminate :: Game -> Bool
-terminate g = size (_hits g) == 17 || size (_damaged g) == 17
+terminate g = Data.Set.size (_hits g) == 17 || Data.Set.size (_damaged g) == 17
 
 
 -- Determine if the coordinate exists on the board
