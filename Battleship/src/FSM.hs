@@ -4,12 +4,10 @@ import Battleship (Game, Coordinate, Boat, attack, terminate, empty, addShip, is
 
 
 data GameState
-    = Start              -- Start state of P1 (Waiting for connection from P2)
-    | Connect            -- Start state of P2 (Attempting to connect to P1)
-    | Setup1 Game        -- P1 Setting up their board
+    = Setup1 Game        -- P1 Setting up their board
     | Setup2 Game        -- P2 Setting up their board
-    | Ready1 Game        -- P1 has finished setup
-    | Ready2 Game        -- P2 has finished setup
+    | Start Game         -- P1 has finished setup and is now ready for P2
+    | SetupWait Game     -- P2 has finished setup and is waiting for P1
     | Attacking Game     -- Player's turn to attack
     | Waiting Game       -- Player is waiting for opponent to attack
     | Win                -- Player won
@@ -20,9 +18,8 @@ data GameState
 data GameEvent
     = Position Boat Coordinate  -- Position Boat
     | Attack Coordinate         -- Attack coordinate
-    | Signal                    -- Signal that player is ready
-    | Connected                 -- Signal that players have connected
-    | Tick                      -- Refresh ready signal until connected
+    | Ready                     -- Signal 
+    | Connect                   -- Signal that player is ready
     deriving (Eq, Show)
 
 -- Wrapper that returns the previous state if an error was encountered
@@ -33,16 +30,12 @@ next gs ge = case transition gs ge of
 
 
 transition :: GameState -> GameEvent -> Maybe GameState
-transition Start Connected           = handleStart
-transition Connect Tick              = handleConnect
-transition Connect Connected         = Just (Setup2 empty)
 transition (Setup1 g) (Position b c) = handleSetup True g b c
 transition (Setup2 g) (Position b c) = handleSetup False g b c
-transition (Setup1 g) Signal         = handleSignal True g
-transition (Setup2 g) Signal         = handleSignal False g
-transition (Ready1 g) Signal         = handleReady1 g
-transition (Ready2 g) Signal         = Just (Waiting g)
-transition (Ready2 g) Tick           = handleReady2 g
+transition (Setup1 g) Ready          = handleReady1 g
+transition (Setup2 g) Ready          = handleReady2 g
+transition (Start g) Connect         = Just (Attacking g)
+transition (SetupWait g) Connect     = Just (Waiting g)
 transition (Attacking g) (Attack c)  = handleAttack g c
 transition (Waiting g) (Attack c)    = handleWait g c
 transition gs _                      = Nothing
@@ -60,6 +53,7 @@ handleAttack g c = do g' <- attack c g
                       else
                           return (Waiting g')
 
+
 -- 1) register opponents attack 
 -- 2) notify opponent of result
 -- 3) if it's a hit, register the hit (damaged)
@@ -67,27 +61,18 @@ handleAttack g c = do g' <- attack c g
 handleWait :: Game -> Coordinate -> Maybe GameState
 handleWait g c = error "todo"
 
+
 handleSetup :: Bool -> Game -> Boat -> Coordinate -> Maybe GameState
 handleSetup p1 g b c = do g' <- addShip b c g 
                           if p1 then return (Setup1 g') else return (Setup2 g')
 
-handleSignal :: Bool -> Game -> Maybe GameState
-handleSignal p1 g = if isSetup g then 
-                        if p1 then return (Ready1 g) else return (Ready2 g)
-                    else Nothing
 
--- Should notify P2 that it started
-handleStart :: Maybe GameState
-handleStart = error "todo"
-
--- Should retry connection to P1
-handleConnect :: Maybe GameState
-handleConnect = error "todo"
+-- Validate if the game is ready and then transition
+handleReady1 :: Game -> Maybe GameState
+handleReady1 g = if isSetup g then Just (Start g) else Nothing
 
 
--- Should notify P2 that it is ready
-handleReady1 = error "todo"
-
-
--- Should retry checking if P1 is ready
+-- Validate if the game is ready and then transition
+-- Should check if P1 is ready, if so then go straight to `Waiting`, 
+-- else go to `SetupWait`
 handleReady2 = error "todo"
