@@ -28,7 +28,9 @@ executable battleship
                        State,
                        Network,
                        Types,
-                       Control
+                       Control,
+                       Transition,
+                       Game
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5
   ghc-options:         -Wall
