@@ -73,3 +73,25 @@ We'll be using Brick for the TUI. Currently, our plan is to have the following l
 More specifically, it'll be 2 10x10 grids where one grid represents the player's board and the other represents the coordinates the player has guessed. On the bottom, we'll have a prompt that notifies the player if we need any inputs from them.
 
 If there's time, then we'll extended the prompt to also support chatting or reduce the area of the prompt and add support for data about the state of the game (e.g. the status of ships).
+
+## Project Updates (11/23/2022)
+
+### Updates
+
+1. Networking: We began with learning and implementing a simple server-client program in Haskell. Specifically, we referred to [this article](https://wiki.haskell.org/Implement_a_chat_server) to understand network and socket programming. Since we decided to not have a centralized server which saves the game state for both the players and interacts with the players machines to determine the progression of the game, we modified the implementation such that both ends would act as servers and clients. On any event, a message is sent to the opponent - awaits a response and updates the state locally.
+
+2. State Upates with Network Events: Our project involves updating the UI and state based on events received from the network. In order to learn further on this, we decided to build a simple networked application - which has a small colored square rendered on the terminal, pressing the return/enter button should send a message to the other node and a node receiving a message would toggle the color of the square displayed. We plan to build on this simple application further to complete our project.
+
+### Challenges
+
+TODO
+
+### Redefined Goals
+
+No changes to our proposed project have been planned based on our progress on the project.
+
+### Architecture
+
+We have modelled the game as a state machine with events causing transitions between the state. The state diagram can be seen as below:
+
+TODO - add image.
