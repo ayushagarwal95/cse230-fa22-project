@@ -67,7 +67,7 @@ We'll be using Brick for the TUI. Currently, our plan is to have the following l
 |          ||          |
 |          ||          |
 |__________||__________|
-|______________________|
+|__________||__________|
 ``` 
 
 More specifically, it'll be 2 10x10 grids where one grid represents the player's board and the other represents the coordinates the player has guessed. On the bottom, we'll have a prompt that notifies the player if we need any inputs from them.
@@ -76,22 +76,132 @@ If there's time, then we'll extended the prompt to also support chatting or redu
 
 ## Project Updates (11/23/2022)
 
-### Updates
+### Update
+For our update, we focused on constructing a simple test program that utilizes Brick UI, Brick events, State Management, and Networking. We intend to use the lessons and structures created as the framework on which our Battleship application will be built on. 
 
-1. Networking: We began with learning and implementing a simple server-client program in Haskell. Specifically, we referred to [this article](https://wiki.haskell.org/Implement_a_chat_server) to understand network and socket programming. Since we decided to not have a centralized server which saves the game state for both the players and interacts with the players machines to determine the progression of the game, we modified the implementation such that both ends would act as servers and clients. On any event, a message is sent to the opponent - awaits a response and updates the state locally.
+Our sample application consists of two states: A and B. Each of which will have a different rendering. To transition between the states, the process must receive a "flip" signal from another paired process running the same application. In other words, a user interacting with the application controls another user's state on a different terminal. As a visualization, this is the corresponding state machine:
 
-2. State Upates with Network Events: Our project involves updating the UI and state based on events received from the network. In order to learn further on this, we decided to build a simple networked application - which has a small colored square rendered on the terminal, pressing the return/enter button should send a message to the other node and a node receiving a message would toggle the color of the square displayed. We plan to build on this simple application further to complete our project.
+```
+State Machine:
+┌───┐            ┌───┐ 
+│ A │  <──────>  │ B │  
+└───┘            └───┘
+
+Events:
+A `EnterKey` -> A (Send Flip to Paired Process)
+B `EnterKey` -> B (Send Flip to Paired Process)
+A `Flip`     -> B 
+B `Flip`     -> A 
+```
+
+Lastly, since it can be implemented independently of all other modules, we've also completed the Game Logic portion of the project (i.e. tracking targeted coordinates, ...).
+
+### Learnings
+#### 1) Networking
+In order to implement the state transitions, we needed some support for networking. Namely, each process should be able to listen in the background for incoming requests. Likewise, our event handling should support sending networked requests to other processes. 
+
+To allow for listening in the background, we discovered `forkIO` which can be treated semantically as similar to a go-routine. Next, perform impure actions (e.g. network requests) outside of main, we need can leverage `liftIO` from types that are instances of `MonadIO`. 
+
+Lastly, to easily implement a TCP channel between two processes, we leveraged the `Network.TCP.Simple` module.
+
+#### 2) State Machine
+For the most part, implementing a simple State Machine is relatively easy. However, due to properties of Haskell as well as how Brick works, it became apparent that states should be broken up by "incoming" events. In other words, each important processing of an event should have an associated state. 
+
+As an example, we'll looking into the Attacking state. As mentioned in our proposal, it can be broken down into the following operations:
+1) Validate coordinate
+2) Notify opponent (Send Network Event)
+3) Process response from opponent (Hit/Miss)
+4) Transition to Waiting
+
+Here, we can see that there's an incoming event in this chain of actions. As such, we should split 3) and 4) into a separate state that 1) and 2) transitions into. 
+
+#### 3) Brick
+The primary learning for Brick was simply getting a feel for how the Brick module works. This includes understanding the layout of Widgets, combining Widgets into a "complex" display, and associating attributes to widgets for styling.
 
 ### Challenges
 
-TODO
+The main challenges for the update were:
+1) Understanding how to execute impure functions outside of `main`
+2) Designing an architecture that has enough abstractions to avoid tight coupling of modules
 
 ### Redefined Goals
 
 No changes to our proposed project have been planned based on our progress on the project.
 
 ### Architecture
+For our architecture, we've arranged our application into a layered stack where each layer can only depend on modules in layers below. The first layer is comprised of solely `Main.hs`. The second layer contains all of the relevant Brick logics: `UI.hs` and `Control.hs`. The third layer contains state management logic: `State.hs` and `Transition.hs`. Lastly, the fourth layer contains game logic and networking: `Game.hs` and `Networking.hs`. A visualization of the layer is shown in the following:
+```
+   ┌─────────┐ 
+1) │ Main.hs │ 
+   └─────────┘ 
+   ┌───────┐ ┌────────────┐  
+2) │ UI.hs │ │ Control.hs │ 
+   └───────┘ └────────────┘    
+   ┌──────────┐ ┌───────────────┐
+3) │ State.hs │ │ Transition.hs │
+   └──────────┘ └───────────────┘ 
+   ┌─────────┐ ┌───────────────┐ 
+4) │ Game.hs │ │ Networking.hs │ 
+   └─────────┘ └───────────────┘ 
+```
 
-We have modelled the game as a state machine with events causing transitions between the state. The state diagram can be seen as below:
+By following this architecture, we can parallelize contributions while limiting discussions to only the exposed interface between layers. This idea of layered ownership is also why we isolated state management from Brick (i.e. `handleEvent` is simply a mapping function).
 
-TODO - add image.
+We have also modelled the game as a state machine with events causing transitions between the state. The state diagram can be seen as below:
+
+```
+Player 1:
+
+┌────────┐          
+│ Setup1 │          
+└────────┘          
+    │
+    ▽
+┌───────┐          
+│ Start │          
+└───────┘          
+    │
+    ▽
+┌───────────┐                         ┌─────────┐          
+│ Attacking │ ◁────────────────────── │ Waiting │          
+└───────────┘                         └─────────┘          
+       │                               △   │
+       │       ┌────────────┐          │   │ 
+       └─────▷ │ AttackWait │ ─────────┘   │
+               └────────────┘              │ 
+                     │                     │
+                     ▽                     ▽
+                  ┌─────┐               ┌──────┐          
+                  │ Win │               │ Lose │          
+                  └─────┘               └──────┘          
+```
+
+```
+Player 2:
+
+┌────────┐          
+│ Setup2 │          
+└────────┘          
+    │
+    ▽
+┌───────────┐          
+│ SetupWait │          
+└───────────┘          
+    │
+    ▽
+┌─────────┐                         ┌───────────┐          
+│ Waiting │ ──────────────────────▷ │ Attacking │          
+└─────────┘                         └───────────┘
+    │  △                               │   
+    │  │       ┌────────────┐          │    
+    │  └────── │ AttackWait │ ◁────────┘   
+    │          └────────────┘               
+    │                │                     
+    ▽                ▽                     
+ ┌──────┐         ┌─────┐               
+ │ Lose │         │ Win │               
+ └──────┘         └─────┘               
+
+```
+
+A more in-depth diagram with edge labels can be found at: https://lucid.app/lucidchart/d4f8f0cc-cc6b-45c4-9198-483d9e65fb62/edit?viewport_loc=-106%2C14%2C2303%2C1518%2C0_0&invitationId=inv_b122c06a-b8c8-4661-9ba8-552a0eb94c85
