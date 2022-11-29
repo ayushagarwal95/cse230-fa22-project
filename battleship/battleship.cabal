@@ -23,7 +23,8 @@ executable battleship
                        brick,
                        network-simple,
                        bytestring,
-                       utf8-string
+                       utf8-string,
+                       split
   other-modules:       UI, 
                        State,
                        Network,

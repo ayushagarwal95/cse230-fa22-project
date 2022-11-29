@@ -78,17 +78,17 @@ initGame = Game {
 --   Note: Validation is performed by ensuring that the number of 
 --   valid blocks matches the number of expected blocks
 addShip :: Boat -> Coordinate -> Game -> Maybe Game
-addShip b c g = let b'       = insertBoat b c (_boats g)
-                    expected = foldl e 0 (keys b')
-                    actual   = length (filter isValid (toList (fromList (concatMap coords (assocs b')))))
-                in
-                    if expected == actual then
-                        Just (g {_boats = b'})
-                    else
-                        Nothing
+addShip b cd g = let b'       = insertBoat b cd (_boats g)
+                     expected = foldl f 0 (keys b')
+                     actual   = length (filter isValid (toList (fromList (concatMap coords (assocs b')))))
+                 in
+                     if expected == actual then
+                         Just (g {_boats = b'})
+                     else
+                         Nothing
     where
-        e b bt             = b + _r bt * _c bt
-        coords (b, (r, c)) = [(r + r', c + c') | r' <- [0..(_r b - 1)], c' <- [0..(_c b - 1)]]
+        f area bt             = area + _r bt * _c bt
+        coords (bt, (r, c)) = [(r + r', c + c') | r' <- [0..(_r bt - 1)], c' <- [0..(_c bt - 1)]]
 
 -- Custom insert to get around problems when orientation is factored in
 insertBoat :: Boat -> Coordinate -> Map Boat Coordinate -> Map Boat Coordinate
