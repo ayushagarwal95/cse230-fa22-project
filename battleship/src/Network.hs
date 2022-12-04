@@ -1,6 +1,6 @@
 module Network (
   NetworkEvent(..), Addr(..), 
-  Network.listen, sendEvent, initAddr) 
+  Network.listen, sendEvent, initAddr, initTestAddr) 
   where
 
 import Network.Simple.TCP
@@ -9,18 +9,26 @@ import qualified Data.ByteString.UTF8 as BLU
 
 import Brick.BChan (BChan, writeBChan)
 
+import Game (Coordinate)
+
 
 -- Events that are sent over the networking
-data NetworkEvent = Flip
+data NetworkEvent 
+  = Ready
+  | Attack Coordinate
+  | Hit
+  | Miss
   deriving (Read, Show)
 
 -- Addr of the opponent
-newtype Addr = Addr { port :: String }
+data Addr = Addr { port :: String, test :: Bool }
   deriving (Show)
 
 initAddr :: String -> Addr
-initAddr p = Addr { port = p}
+initAddr p = Addr { port = p, test = False}
 
+initTestAddr :: Addr
+initTestAddr = Addr { port = "8080", test = True }
 
 -- Note: Sockets aren't reused across connections
 -- so we can assume that each connection will always correspond 
@@ -41,8 +49,11 @@ listen p ch = serve (Host "127.0.0.1") p f
 
 
 -- Sends a network even to the opponent
-sendEvent :: String -> NetworkEvent -> IO () 
-sendEvent p e = connect "127.0.0.1" p f
+sendEvent :: Bool -> String -> NetworkEvent -> IO () 
+sendEvent t p e = if t then 
+                    return ()  -- Hacky thing to handle testing
+                  else 
+                    connect "127.0.0.1" p f
   where
     f (s, _) = do
       send s (BLU.fromString $ show e)

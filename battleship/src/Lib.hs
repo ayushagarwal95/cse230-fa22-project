@@ -1,4 +1,4 @@
-module Main (main) where
+module Lib (main) where
 
 import System.Environment ( getArgs )
 import Control.Concurrent (forkIO)
@@ -8,7 +8,7 @@ import Brick.BChan ( newBChan )
 import qualified Graphics.Vty as V
 
 import Types (ResourceName)
-import State (State, initState)
+import State (State, initGameState)
 import Network (NetworkEvent, listen)
 import Control (handleEvent)
 import UI (draw, attrs)
@@ -28,8 +28,8 @@ main = do
 
 -- Constructs the start state of the application
 buildInitialState :: String -> String -> IO State
-buildInitialState "0" p = pure $ initState True p
-buildInitialState _   p = pure $ initState False p
+buildInitialState "0" p = pure $ initGameState True p
+buildInitialState _   p = pure $ initGameState False p
 
 
 -- Brick Application

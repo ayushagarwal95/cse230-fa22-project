@@ -28,4 +28,4 @@ transition :: State -> Event -> EventM n (Next State)
 transition st e = do x <- liftIO $ Transition.transition st e
                      case x of 
                        Just nxt -> continue nxt
-                       Nothing  -> error "Error"
+                       Nothing  -> continue st   -- Nothing indicates that an unexpected event was processed -> revert to prior state
