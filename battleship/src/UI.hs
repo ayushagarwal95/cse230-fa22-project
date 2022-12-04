@@ -36,6 +36,7 @@ draw' :: State -> Widget ResourceName
 draw' st =
   vBox $
     let grids = drawGrids st
+        txtBoxes = drawTextBoxes st
      in [grids, txtBoxes]
 
 -- Draws the grids
@@ -96,11 +97,91 @@ transform' st (r, c) =
       padLeftRight 1 $
         withAttr (mapStatus $ getTargetStatus (r, c) $ game st) drawEmpty
 
+-- Combines 2d of widgets into a single widget
+combine :: [[Widget ResourceName]] -> Widget ResourceName
+combine ws = foldl1 f $ map g ws
+  where
+    f w r = vBox $ [w] ++ [r]
+    g ws = foldl1 (\w e -> hBox $ [w] ++ [e]) ws
+
 -- Draws an empty cell
 drawEmpty :: Widget ResourceName
 drawEmpty = str "  "
 
+-- Draws the textboxes
+drawTextBoxes :: State -> Widget ResourceName
+drawTextBoxes st =
+  hBox
+    [ drawTextStyle input $ drawTextBox st,
+      drawTextStyle info $ drawInfoBox st
+    ]
+
+-- Adds Textbox Styling
+drawTextStyle :: String -> Widget ResourceName -> Widget ResourceName
+drawTextStyle h w =
+  withBorderStyle unicode $
+    borderWithLabel (padLeftRight 1 $ str h) $
+      padLeftRight 1 $
+        setAvailableSize
+          (55, 15)
+          w
+
+-- Draws the textbox
+drawTextBox :: State -> Widget ResourceName
+drawTextBox st =
+  vBox
+    [ drawPrompt st,
+      fill ' '
+    ]
+
+-- Draw Info
+drawInfoBox :: State -> Widget ResourceName
+drawInfoBox st =
+  vBox
+    [drawInfo st, fill ' ']
+
+-- Draws Text Prompt for the current state
+drawPrompt :: State -> Widget ResourceName
+drawPrompt (Setup1 _ _ s e) = vBox [setupPrompt e, drawInput s]
+drawPrompt (Setup2 _ _ s e) = vBox [setupPrompt e, drawInput s]
+drawPrompt (Start _ _) = str connect
+drawPrompt (SetupWait _ _) = str connect
+drawPrompt (Waiting _ _) = str waiting
+drawPrompt (AttackWait _ _ _) = str attackWait
+drawPrompt (Attacking _ _ s e) = vBox [attackingPrompt e, drawInput s]
+drawPrompt (Win _) = str "You Won!"
+drawPrompt (Lose _) = str "You Lost."
+
+setupPrompt :: Bool -> Widget n
+setupPrompt False = str setup
+setupPrompt _ = vBox [errorPrompt invalidInput, str setup]
+
+errorPrompt :: String -> Widget n
+errorPrompt s = vBox [withAttr errorAttr $ str s, str " "]
+
+attackingPrompt :: Bool -> Widget n
+attackingPrompt False = str attacking
+attackingPrompt _ = vBox [errorPrompt invalidInput, str attacking]
+
+-- Draws Prompt
+drawInput :: String -> Widget ResourceName
+drawInput sr = str $ ">> " ++ sr
+
+-- Draws Info Text for the current state
+drawInfo :: State -> Widget ResourceName
+drawInfo (Setup1 _ g _ _) = setupInfo g
+drawInfo (Setup2 _ g _ _) = setupInfo g
+drawInfo (Start _ _) = generalInfo
+drawInfo (SetupWait _ _) = setupWaitInfo
+drawInfo (Waiting _ _) = generalInfo
+drawInfo (Attacking _ _ _ _) = attackingInfo
+drawInfo (AttackWait _ _ _) = generalInfo
+drawInfo _ = generalInfo
+
 -- Attributes
+aAttr, bAttr :: AttrName
+aAttr = "aAttr"
+bAttr = "bAttr"
 
 boatAttr, hitAttr, missAttr, emptyAttr :: AttrName
 boatAttr = "boatAttr"
@@ -117,6 +198,77 @@ oceanGrid = "Ocean Grid"
 targetGrid = "Target Grid"
 input = "Input"
 info = "Info"
+
+-- Prompts
+setup :: String
+setup = "(Setup) Position a boat:"
+
+connect :: String
+connect = "(Ready) Waiting for the opponent to connect..."
+
+attacking :: String
+attacking = "(Attack) Enter a coordinate:"
+
+attackWait :: String
+attackWait = "(Attack) Waiting for outcome of attack..."
+
+waiting :: String
+waiting = "(Wait) Waiting for the opponent to attack..."
+
+-- Info
+generalInfo :: Widget n
+generalInfo = str "ESC - quit"
+
+readyInfo :: Widget n
+readyInfo = str "r - ready"
+
+setupInfo :: Game -> Widget n
+setupInfo g =
+  vBox
+    [ generalInfo,
+      readyLine g,
+      str " ",
+      str "Input Format - b:o:c",
+      str "  b - boat number ([1..5])",
+      str "  o - orientation (v/h)",
+      str "  c - top-left coordinate  (rc)",
+      str " ",
+      boatInfo
+    ]
+  where
+    readyLine g = if isSetup g then readyInfo else str " "
+
+attackingInfo :: Widget n
+attackingInfo =
+  vBox
+    [ generalInfo,
+      str " ",
+      str " ",
+      str "Input Format - c",
+      str "  c - attack coordinate  (rc)"
+    ]
+
+boatInfo :: Widget n
+boatInfo =
+  vBox
+    [ str "Boats:",
+      str "  1 - (1x2)",
+      str "  2 - (1x3)",
+      str "  3 - (1x3)",
+      str "  4 - (1x4)",
+      str "  5 - (1x5)"
+    ]
+
+setupWaitInfo :: Widget n
+setupWaitInfo =
+  vBox
+    [ generalInfo,
+      str "ENTER - try to reconnect"
+    ]
+
+-- Error Message
+invalidInput :: String
+invalidInput = "Error - Invalid Input"
 
 -- Mappers
 mapStatus :: Status -> AttrName
