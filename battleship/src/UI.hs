@@ -1,33 +1,117 @@
 {-# LANGUAGE OverloadedStrings #-}
 module UI (attrs, draw) where 
 
-import Brick.Types ( Widget )
-import Brick.Widgets.Core ( str, withAttr )
+import Brick.Types ( Widget, Padding (..) )
+import Brick.Widgets.Core ( str, withAttr, vBox, joinBorders, hBox, withBorderStyle, padAll, padRight, padLeftRight, txt, hLimit, textWidth, txtWrap, setAvailableSize, fill )
 import Brick.AttrMap ( AttrMap, AttrName, attrMap )
-import Brick.Util ( on )
+import Brick.Util ( on, fg )
+import Brick.Widgets.Border (border, borderWithLabel, hBorder)
+import Brick.Widgets.Border.Style (unicode)
 import qualified Graphics.Vty as V
 
 import State (State(..))
 import Types (ResourceName)
+import Game (Coordinate, isHit, Game, isSetup, Status(..), getOceanStatus, getTargetStatus)
+import Data.Bits (xor)
+import Brick.Widgets.Table (table, renderTable, alignCenter, alignLeft, setDefaultColAlignment, ColumnAlignment (AlignCenter), RowAlignment (..), setDefaultRowAlignment)
+import Data.Char (chr, ord)
+import qualified Data.Text as T
 
 
 -- Returns the attribute style map for the application
 attrs :: AttrMap
 attrs = attrMap V.defAttr 
-  [ (aAttr, V.blue `on` V.blue)
-  , (bAttr, V.red `on` V.red)
+  [ (errorAttr, fg V.red)
+  , (boatAttr, V.blue `on` V.blue)
+  , (hitAttr, V.red `on` V.red)
+  , (missAttr, V.white `on` V.white)
   ]
 
 -- Draws the TUI from the given state
 draw :: State -> [Widget ResourceName]
-draw (A _) = [withAttr aAttr drawCell]
-draw (B _) = [withAttr bAttr drawCell]
+draw st = [draw' st]
+
+draw' :: State -> Widget ResourceName 
+draw' st = vBox $ 
+  let grids = drawGrids st
+  in [grids, txtBoxes]
+
+-- Draws the grids
+drawGrids :: State -> Widget ResourceName
+drawGrids st = let g = [drawGrid st oceanGrid]
+                   g' = [drawGrid st targetGrid]
+               in hBox $ g ++ g'
+
+-- Draws the grid
+drawGrid :: State -> String -> Widget ResourceName
+drawGrid st h = 
+  withBorderStyle unicode $
+  borderWithLabel (padLeftRight 1 $ str h) $ 
+  let grid = constructGrid
+      oGrid = gridMap (transform st) grid -- Add attributes here
+      tGrid = gridMap (transform' st) grid -- Add attributes here
+      wGrid = if h == oceanGrid then oGrid else tGrid
+      widget = padRight (Pad 1) $ 
+        renderTable $ 
+          setDefaultRowAlignment AlignMiddle $
+          setDefaultColAlignment AlignCenter $
+          table wGrid
+  in widget
+  
+-- Construct grid
+constructGrid :: [[Coordinate]]
+constructGrid = map f [-1..9]
+  where
+    f i = [(i, j) | j <- [-1..9]]
+
+-- Map all values in a 2d-grid
+gridMap :: (a -> b) -> [[a]] -> [[b]]
+gridMap f xs = map (\x -> map f x) xs
+
+-- Transforms Coordinates to widgets (Ocean)
+transform :: State -> Coordinate -> Widget ResourceName
+transform st (r, c) = if (r == -1) `xor` (c == -1) then 
+                        if r == -1 then str $ show c
+                        else str [chr $ ord 'a' + r]
+                      else
+                        padLeftRight 1 $ 
+                        withAttr (mapStatus $ getOceanStatus (r, c) $ game st) drawEmpty
+
+
+-- Transforms Coordinates to widgets (Target)
+transform' :: State -> Coordinate -> Widget ResourceName
+transform' st (r, c) = if (r == -1) `xor` (c == -1) then 
+                        if r == -1 then str $ show c
+                        else str [chr $ ord 'a' + r]
+                      else
+                        padLeftRight 1 $ 
+                        withAttr (mapStatus $ getTargetStatus (r, c) $ game st) drawEmpty
 
 -- Draws an empty cell
-drawCell :: Widget n 
-drawCell = str "  "
+drawEmpty :: Widget ResourceName
+drawEmpty = str "  "
 
 -- Attributes
-aAttr, bAttr :: AttrName
-aAttr = "aAttr"
-bAttr = "bAttr"
+
+boatAttr, hitAttr, missAttr, emptyAttr :: AttrName
+boatAttr  = "boatAttr"
+hitAttr   = "hitAttr"
+missAttr  = "missAttr"
+emptyAttr = "emptyAttr"
+
+errorAttr :: AttrName
+errorAttr = "error"
+
+-- Headers
+oceanGrid, targetGrid, input, info :: String
+oceanGrid  = "Ocean Grid"
+targetGrid = "Target Grid"
+input      = "Input"
+info       = "Info"
+
+-- Mappers
+mapStatus :: Status -> AttrName
+mapStatus H = hitAttr
+mapStatus M = missAttr 
+mapStatus B = boatAttr
+mapStatus E = emptyAttr
