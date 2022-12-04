@@ -4,7 +4,8 @@ module Transition (
   prop_bkspc_nothing, prop_bkspc_valid, prop_bkspc_trunc, prop_bkspc_empty,
   prop_wait_attack_hit, prop_wait_attack_miss, prop_wait_lose,
   prop_attackwait_wait_hit, prop_attackwait_wait_miss, prop_attackwait_win,
-  prop_attacking_valid, prop_attacking_prev, prop_attacking_invalid
+  prop_attacking_valid, prop_attacking_prev, prop_attacking_invalid,
+  prop_setup_invalid, prop_setup_ready, prop_setup_ready2, prop_setup_invalid2
 ) where
 
 import Control.Monad.IO.Class ( MonadIO(liftIO) )
@@ -23,7 +24,7 @@ import Game
       isHit,
       damaged,
       targeted,
-      terminate, initGame, genGame, damageCond, genVal, overlaps, genSet, genInvalid, Orientation)
+      terminate, initGame, genGame, damageCond, genVal, overlaps, genSet, genInvalid, Orientation, genBoats)
 import Data.Char (ord, isDigit, digitToInt)
 import Data.List.Split ( splitOn )
 import Data.Maybe (fromJust, isJust, isNothing)
@@ -222,32 +223,32 @@ prop_bkspc_empty = forAll (genIState True) $ \st ->
                       null $ s (fromJust st')
 
 prop_wait_attack_hit :: Property
-prop_wait_attack_hit = monadicIO $ do 
+prop_wait_attack_hit = monadicIO $ do
                                     g <- pick $ genGame 15
                                     cd <- pick (suchThat genVal (damageCond True g))
                                     let st = Waiting initTestAddr g
                                     st' <- run $ handleAttack2 st cd
-                                    assert $ case fromJust st' of 
+                                    assert $ case fromJust st' of
                                       Attacking _ _ _ _ -> True
                                       _                 -> False
 
 prop_wait_attack_miss :: Property
-prop_wait_attack_miss = monadicIO $ do 
+prop_wait_attack_miss = monadicIO $ do
                                     g <- pick $ genGame 16
                                     cd <- pick (suchThat genVal (damageCond False g))
                                     let st = Waiting initTestAddr g
                                     st' <- run $ handleAttack2 st cd
-                                    assert $ case fromJust st' of 
+                                    assert $ case fromJust st' of
                                       Attacking _ _ _ _ -> True
                                       _                 -> False
 
 prop_wait_lose :: Property
-prop_wait_lose = monadicIO $ do 
+prop_wait_lose = monadicIO $ do
                                g <- pick $ genGame 16
                                cd <- pick (suchThat genVal (damageCond True g))
                                let st = Waiting initTestAddr g
                                st' <- run $ handleAttack2 st cd
-                               assert $ case fromJust st' of 
+                               assert $ case fromJust st' of
                                  Lose _ -> True
                                  _      -> False
 
@@ -258,8 +259,8 @@ prop_attackwait_wait_hit = forAll (genSet 1 15) $ \s ->
                                       g' = g {_hits = s}
                                       st = AttackWait initTestAddr g' c
                                       st' = fromJust $ handleHit st
-                                  in 
-                                    case st' of 
+                                  in
+                                    case st' of
                                       Waiting _ _ -> True
                                       _           -> False
 
@@ -270,8 +271,8 @@ prop_attackwait_win = forAll (genSet 16 16) $ \s ->
                                   g' = g {_hits = s}
                                   st = AttackWait initTestAddr g' c
                                   st' = fromJust $ handleHit st
-                              in 
-                               case st' of 
+                              in
+                               case st' of
                                   Win _ -> True
                                   _     -> False
 
@@ -282,46 +283,89 @@ prop_attackwait_wait_miss = forAll (genSet 16 16) $ \s ->
                                       g' = g {_hits = s}
                                       st = AttackWait initTestAddr g' c
                                       st' = fromJust $ handleMiss st
-                                  in 
-                                    case st' of 
+                                  in
+                                    case st' of
                                       Waiting _ _ -> True
                                       _           -> False
 
 prop_attacking_valid :: Property
-prop_attacking_valid = monadicIO $ do 
+prop_attacking_valid = monadicIO $ do
                                   s <- pick $ genSet 0 99
                                   c <- pick $ suchThat genVal (overlaps False s)
                                   let g = initGame
                                   let g' = g {_attacked = s}
                                   let st = Attacking initTestAddr g' (cdToStr c) False
                                   st' <- run $ handleEnter st
-                                  assert $ case fromJust $ st' of 
+                                  assert $ case fromJust $ st' of
                                     AttackWait _ _ _ -> True
                                     _                -> False
 
 prop_attacking_prev :: Property
-prop_attacking_prev = monadicIO $ do 
+prop_attacking_prev = monadicIO $ do
                                   s <- pick $ genSet 1 99
                                   c <- pick $ suchThat genVal (overlaps True s)
                                   let g = initGame
                                   let g' = g {_attacked = s}
                                   let st = Attacking initTestAddr g' (cdToStr c) False
                                   st' <- run $ handleEnter st
-                                  assert $ case fromJust $ st' of 
+                                  assert $ case fromJust $ st' of
                                     Attacking _ _ _ True -> True
                                     _                    -> False
 
 prop_attacking_invalid :: Property
-prop_attacking_invalid = monadicIO $ do 
+prop_attacking_invalid = monadicIO $ do
                                   s <- pick $ genSet 0 0
                                   c <- pick $ oneof [do {c <- suchThat genInvalid (overlaps False s); return $ cdToStr c}, genString, return ""]
                                   let g = initGame
                                   let g' = g {_attacked = s}
                                   let st = Attacking initTestAddr g' c False
                                   st' <- run $ handleEnter st
-                                  assert $ case fromJust $ st' of 
+                                  assert $ case fromJust $ st' of
                                     Attacking _ _ _ True -> True
                                     _                    -> False
+
+prop_setup_ready :: Property
+prop_setup_ready = monadicIO $ do
+                                 m <- pick $ genBoats 5 5
+                                 let g = initGame
+                                 let st = Setup1 initTestAddr (g {_boats = m}) "r" False
+                                 st' <- run $ handleEnter st
+                                 assert $ case fromJust $ st' of
+                                   Start _ _  -> True
+                                   _          -> False
+
+prop_setup_invalid :: Property
+prop_setup_invalid = monadicIO $ do
+                                  m <- pick $ genBoats 0 4
+                                  let g = initGame
+                                  c <- pick $ oneof [genInvalidSetup, genString, return ""]
+                                  let st = Setup1 initTestAddr (g {_boats = m}) c False
+                                  st' <- run $ handleEnter st
+                                  assert $ case fromJust $ st' of
+                                    Setup1 _ _ _ True -> True
+                                    _                 -> False
+
+prop_setup_ready2 :: Property
+prop_setup_ready2 = monadicIO $ do
+                                 m <- pick $ genBoats 5 5
+                                 let g = initGame
+                                 let st = Setup2 initTestAddr (g {_boats = m}) "r" False
+                                 st' <- run $ handleEnter st
+                                 assert $ case fromJust $ st' of
+                                   SetupWait _ _  -> True
+                                   _              -> False
+
+prop_setup_invalid2 :: Property
+prop_setup_invalid2 = monadicIO $ do
+                                  m <- pick $ genBoats 0 4
+                                  let g = initGame
+                                  c <- pick $ oneof [genInvalidSetup, genString, return ""]
+                                  let st = Setup2 initTestAddr (g {_boats = m}) c False
+                                  st' <- run $ handleEnter st
+                                  assert $ case fromJust $ st' of
+                                    Setup2 _ _ _ True -> True
+                                    _                 -> False
+
 
 cdToStr :: Coordinate -> String
 cdToStr (r,c) = [row, col]
@@ -349,3 +393,19 @@ genIState' s i = do
 
 genString :: Gen String
 genString = listOf1 $ elements ['a'..'z']
+
+genInvalidSetup :: Gen String
+genInvalidSetup = oneof [invalidBoat, invalidO, invalidCoord]
+  where
+    invalidBoat = do n <- choose (6,10) :: Gen Int
+                     o <- elements ['h', 'v']
+                     cd <- genVal
+                     return $ (show n) ++ ":" ++ [o] ++ ":" ++ (cdToStr cd)
+    invalidO = do n <- choose (1,5) :: Gen Int
+                  o <- elements ['a', 'g']
+                  cd <- genVal
+                  return $ (show n) ++ ":" ++ [o] ++ ":" ++ (cdToStr cd)
+    invalidCoord = do n <- choose (1,5) :: Gen Int
+                      o <- elements ['h', 'v']
+                      cd <- genInvalid
+                      return $ (show n) ++ ":" ++ [o] ++ ":" ++ (cdToStr cd)

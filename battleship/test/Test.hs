@@ -47,5 +47,9 @@ state = testGroup "State Tests"
     testProperty  "AttackWait - Win" prop_attackwait_win,
     testProperty  "Attack - AttackWait" prop_attacking_valid,
     testProperty  "Attack - Prev" prop_attacking_prev,
-    testProperty  "Attack - Invalid" prop_attacking_invalid
+    testProperty  "Attack - Invalid" prop_attacking_invalid,
+    testProperty  "Setup1 - Ready" prop_setup_ready,
+    testProperty  "Setup1 - Invalid" prop_setup_invalid,
+    testProperty  "Setup2 - Ready" prop_setup_ready2,
+    testProperty  "Setup2 - Invalid" prop_setup_invalid2
   ]

@@ -10,7 +10,7 @@ module Game (
   prop_term,
   prop_ishit_hit, prop_ishit_miss,
   prop_add_valid, prop_add_p1, prop_add_replace, prop_add_same, prop_add_overlap, prop_add_oob,
-  genGame, damageCond, genVal, genSet, overlaps, genInvalid
+  genGame, damageCond, genVal, genSet, overlaps, genInvalid, genBoats
   )
   where
 
