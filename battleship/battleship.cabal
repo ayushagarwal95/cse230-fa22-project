@@ -24,7 +24,8 @@ library
                        bytestring,
                        utf8-string,
                        split,
-                       QuickCheck
+                       QuickCheck,
+                       text
   exposed-modules:     Lib, 
                        UI, 
                        State,
