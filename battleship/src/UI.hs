@@ -97,13 +97,6 @@ transform' st (r, c) =
       padLeftRight 1 $
         withAttr (mapStatus $ getTargetStatus (r, c) $ game st) drawEmpty
 
--- Combines 2d of widgets into a single widget
-combine :: [[Widget ResourceName]] -> Widget ResourceName
-combine ws = foldl1 f $ map g ws
-  where
-    f w r = vBox $ [w] ++ [r]
-    g ws = foldl1 (\w e -> hBox $ [w] ++ [e]) ws
-
 -- Draws an empty cell
 drawEmpty :: Widget ResourceName
 drawEmpty = str "  "
