@@ -1,6 +1,7 @@
 {-# LANGUAGE InstanceSigs #-}
 module Game (
-  Game(..), Coordinate, Orientation, Boat, Status(..),
+  Game(..), Coordinate, Orientation, Boat, Status(..), boats,
+  rows, cols,
   initGame, getBoat,
   addShip, isSetup,
   getOceanStatus, getTargetStatus,
@@ -121,7 +122,7 @@ insertBoat b c m = let matches = filter (== b) $ keys m
 
 -- Determines if the game is considered fully setup (all boats exist on the board)
 isSetup :: Game -> Bool
-isSetup g = Data.Map.size (_boats g) == 5
+isSetup g = Data.Map.size (_boats g) == length boats
 
 
 -- Possibly attack the coordinate if valid (new coordinate)

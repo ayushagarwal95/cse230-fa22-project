@@ -24,7 +24,7 @@ import Game
       isHit,
       damaged,
       targeted,
-      terminate, initGame, genGame, damageCond, genVal, overlaps, genSet, genInvalid, Orientation, genBoats)
+      terminate, initGame, genGame, damageCond, genVal, overlaps, genSet, genInvalid, Orientation, genBoats, boats)
 import Data.Char (ord, isDigit, digitToInt)
 import Data.List.Split ( splitOn )
 import Data.Maybe (fromJust, isJust, isNothing)
@@ -110,7 +110,7 @@ getBoatNumber :: String -> Maybe Int
 getBoatNumber s = if length s == 1 && isDigit (head s) then
                     let d = digitToInt (head s)
                     in
-                    if d >= 1 && d <= 5 then Just d else Nothing
+                    if d >= 1 && d <= (length boats) then Just d else Nothing
                   else
                     Nothing
 

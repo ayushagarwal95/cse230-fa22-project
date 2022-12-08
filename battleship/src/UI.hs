@@ -12,7 +12,7 @@ import Brick.Widgets.Table (ColumnAlignment (AlignCenter), RowAlignment (..), al
 import Data.Bits (xor)
 import Data.Char (chr, ord)
 import qualified Data.Text as T
-import Game (Coordinate, Game, Status (..), getOceanStatus, getTargetStatus, isHit, isSetup)
+import Game (Coordinate, Game, Status (..), getOceanStatus, getTargetStatus, isHit, isSetup, rows, cols)
 import qualified Graphics.Vty as V
 import State (State (..))
 import Types (ResourceName)
@@ -65,9 +65,9 @@ drawGrid st h =
 
 -- Construct grid
 constructGrid :: [[Coordinate]]
-constructGrid = map f [-1 .. 9]
+constructGrid = map f [-1 .. (rows - 1)]
   where
-    f i = [(i, j) | j <- [-1 .. 9]]
+    f i = [(i, j) | j <- [-1 .. (cols - 1)]]
 
 -- Map all values in a 2d-grid
 gridMap :: (a -> b) -> [[a]] -> [[b]]
